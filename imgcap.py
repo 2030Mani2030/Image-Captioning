@@ -12,27 +12,19 @@ model_name = "openai/clip-vit-base-patch32"
 model = CLIPModel.from_pretrained(model_name).to(device)
 processor = CLIPProcessor.from_pretrained(model_name)
 
-# Function to preprocess the image from URL
-def preprocess_image_from_url(image_url):
-    response = requests.get(image_url)
-    response.raise_for_status()  # Raise an exception if the request was unsuccessful
-    image = Image.open(BytesIO(response.content))
-    image = image.resize((224, 224))
-    image = transforms.ToTensor()(image).unsqueeze(0)
-    image = image.to(device)
-    return image
-
-# Function to preprocess the uploaded image
-def preprocess_uploaded_image(uploaded_file):
-    image = Image.open(uploaded_file)
-    image = image.resize((224, 224))
-    image = transforms.ToTensor()(image).unsqueeze(0)
+# Function to preprocess the image
+def preprocess_image(image):
+    image = image.convert("RGB")
+    image = transforms.Resize((224, 224))(image)
+    image = transforms.ToTensor()(image)
+    image = transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))(image)
+    image = image.unsqueeze(0)
     image = image.to(device)
     return image
 
 # Function to generate a caption for the image
 def generate_caption(image):
-    inputs = processor(text=None, images=image, return_tensors="pt")
+    inputs = processor(images=image, return_tensors="pt", padding=True)
     with torch.no_grad():
         outputs = model(**inputs)
         logits_per_image = outputs.logits_per_image
@@ -66,7 +58,9 @@ def main():
     if st.button("Generate Caption", key="url_button"):
         if image_url:
             try:
-                image = preprocess_image_from_url(image_url)
+                response = requests.get(image_url)
+                image = Image.open(BytesIO(response.content))
+                image = preprocess_image(image)
                 caption = generate_caption(image)
                 st.success(f"Caption: {caption}")
             except Exception as e:
@@ -80,7 +74,8 @@ def main():
     if st.button("Generate Caption", key="file_button"):
         if uploaded_file is not None:
             try:
-                image = preprocess_uploaded_image(uploaded_file)
+                image = Image.open(uploaded_file)
+                image = preprocess_image(image)
                 caption = generate_caption(image)
                 st.success(f"Caption: {caption}")
             except Exception as e:
