@@ -3,5 +3,5 @@ torch
 torchvision
 transformers
 requests
-streamlit
+streamlit==1.22.0
 Pillow
